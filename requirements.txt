@@ -1,0 +1,23 @@
+numpy>=1.23
+tqdm>=4.60
+pillow>=9.0
+opencv-python>=4.7
+matplotlib>=3.6
+scikit-learn>=1.1
+torch>=2.0
+torchvision>=0.15
+onnx>=1.14
+onnxruntime>=1.16
+# If you want GPU execution with ONNX Runtime, install ONE of these instead of onnxruntime:
+# onnxruntime-gpu>=1.16
+
+# ----------------------------
+# Optional: YOLOv11n box prompting pipeline
+# (only needed if you run the YOLO + FirESAM pipeline scripts)
+# ----------------------------
+#ultralytics>=8.0
+
+# ----------------------------
+# Optional: annotation / serving UI (only if you run the Flask annotator app)
+# ----------------------------
+#Flask>=2.2
