@@ -1,0 +1,77 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the associated paper and the software (and dataset, if used)."
+title: "FirESAM: An Ultra-Lightweight Prompt-in-the-Loop Distillation Model for Real-Time Fire Segmentation on Edge Devices and the FirESAM Semantic Segmentation Dataset (FSSSD)"
+type: software
+version: "1.0.0"
+date-released: 2026-02-10
+license: "Apache-2.0"
+repository-code: "https://github.com/UEmmanuel5/FirESAM"
+
+doi: "10.5281/zenodo.18598906"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.18598906"
+
+keywords:
+  - fire segmentation
+  - promptable segmentation
+  - edge computing
+  - knowledge distillation
+  - dataset annotation
+
+authors:
+  - family-names: Ugwu
+    given-names: Emmanuel U.
+    affiliation: "University of Science and Technology of China"
+    email: "ugwuemmanuelugo2000@mail.ustc.edu.cn"
+    contribution: "Equal contribution"
+  - family-names: Zhang
+    given-names: Xinming
+    affiliation: "University of Science and Technology of China"
+    email: "xinming@ustc.edu.cn"
+    contribution: "Equal contribution"
+  - family-names: Ouedraogo
+    given-names: Ezekiel B.
+    affiliation: "University of Science and Technology of China"
+    email: "kingeze@mail.ustc.edu.cn"
+    contribution: "Equal contribution"
+  - family-names: Liemong
+    given-names: Caezar Al Fajr N. Aprilica
+    affiliation: "University of Science and Technology of China"
+    email: "niralfajr30@mail.ustc.edu.cn"
+    contribution: "Equal contribution"
+  - family-names: Sukianto
+    given-names: Aurelia
+    affiliation: "University of Science and Technology of China"
+    email: "ausukianto26@mail.ustc.edu.cn"
+    contribution: "Equal contribution"
+  - family-names: Huang
+    given-names: Sicheng
+    affiliation: "University of Science and Technology of China"
+    email: "raymondhuang@mail.ustc.edu.cn"
+    contribution: "Equal contribution"
+
+related-identifiers:
+  - type: doi
+    value: "10.6084/m9.figshare.31311118"
+    description: "FirESAM Semantic Segmentation Dataset (FSSSD / F3SD)"
+    relation-type: isSupplementTo
+
+preferred-citation:
+  type: article
+  title: "FirESAM: An Ultra-Lightweight Prompt-in-the-Loop Distillation Model for Real-Time Fire Segmentation on Edge Devices and the FirESAM Semantic Segmentation Dataset (FSSSD)"
+  authors:
+    - family-names: Ugwu
+      given-names: Emmanuel U.
+    - family-names: Zhang
+      given-names: Xinming
+    - family-names: Ouedraogo
+      given-names: Ezekiel B.
+    - family-names: Liemong
+      given-names: Caezar Al Fajr N. Aprilica
+    - family-names: Sukianto
+      given-names: Aurelia
+    - family-names: Huang
+      given-names: Sicheng
+  year: 2026
+  status: "manuscript in preparation"

@@ -1,4 +1,8 @@
-[![License](https://img.shields.io/badge/License-INSERT--LICENSE-blue.svg)](LICENSE)
+[![Code License: Apache-2.0](https://img.shields.io/badge/Code%20License-Apache--2.0-blue.svg)](LICENSE)
+[![Code DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18598906.svg)](https://doi.org/10.5281/zenodo.18598906)
+[![Dataset License: CC BY 4.0](https://img.shields.io/badge/Dataset%20License-CC%20BY%204.0-orange.svg)](https://creativecommons.org/licenses/by/4.0/)
+[![Dataset DOI](https://img.shields.io/badge/Dataset%20DOI-10.6084%2Fm9.figshare.31311118-brightgreen.svg)](https://doi.org/10.6084/m9.figshare.31311118)
+
 
 # FirESAM: An Ultra-Lightweight Prompt-in-the-Loop Distillation Model for Real-Time Fire Segmentation on Edge Devices and the FirESAM Semantic Segmentation Dataset (FSSSD)
 
@@ -69,9 +73,35 @@ For ONNX inference/benchmarking, install either:
 
 ## Dataset preparation (Khan + Roboflow fire)
 
-The code supports training and evaluation on **Khan**, **Roboflow**, or **Combined** (Khan ∪ Roboflow). First unify your fire datasets into a simple **image/mask + split file** format.
+The code supports training and evaluation on **Khan**, **Roboflow**, or **Combined** (Khan ∪ Roboflow). 
 
-### 3.1. Directory layout
+### 3.1. Datasets
+
+Please obtain datasets from their official sources and respect licenses:
+
+* **Khan et al.** DOI: 10.1109/TITS.2022.3203868
+  Link: [https://drive.google.com/drive/folders/1Xfq7zLwIwJ4vPx50G-k7j2-ofh1bj3fx](https://drive.google.com/drive/folders/1Xfq7zLwIwJ4vPx50G-k7j2-ofh1bj3fx)
+
+* **Roboflow Fire Segmentation**
+  [https://universe.roboflow.com/firesegpart1/fire-seg-part1/dataset/21](https://universe.roboflow.com/firesegpart1/fire-seg-part1/dataset/21)
+
+* **Foggia (MIVIA) Fire dataset** DOI: 10.1109/TCSVT.2015.2392531
+  [https://mivia.unisa.it/datasets/video-analysis-datasets/fire-detection-dataset/](https://mivia.unisa.it/datasets/video-analysis-datasets/fire-detection-dataset/)
+
+* **BurnedAreaUAV (BAUAV)** DOI: [https://doi.org/10.1016/j.isprsjprs.2023.07.002](https://doi.org/10.1016/j.isprsjprs.2023.07.002)
+  [https://zenodo.org/records/7944963](https://zenodo.org/records/7944963)
+
+* **FiSmo** paper and sources
+  Paper: [https://www.researchgate.net/publication/322365857](https://www.researchgate.net/publication/322365857)
+  GitHub: [https://github.com/mtcazzolato/dsw2017](https://github.com/mtcazzolato/dsw2017)
+  Example video (fireVid_017): [https://drive.google.com/drive/folders/1SoYViOABT_Pt-rwrU7vPrgM7ts09D9tu?usp=sharing](https://drive.google.com/drive/folders/1SoYViOABT_Pt-rwrU7vPrgM7ts09D9tu?usp=sharing)
+
+
+
+
+First unify your fire datasets into a simple **image/mask + split file** format.
+
+### 3.2. Directory layout
 
 Create a `data/fire/` folder inside `FirESAM`:
 
@@ -97,7 +127,7 @@ FirESAM/
         test.txt
 ```
 
-### 3.2. Split text files
+### 3.3. Split text files
 
 Each split file is a plain text file with **one sample per line**:
 
@@ -309,6 +339,118 @@ python -m firesam.eval.eval_student \
   --split /path/to/DATASET_ROOT/splits/test.txt \
   --batch_size 8
 ```
+---
+
+## Evaluate a prompt-rasterized student under detector prompts (YOLO)
+
+Script: `firesam/eval/eval_yolo_prompted_student.py`
+
+Evaluates **ProLimFUNet** (baseline) or **FirESAM** (KD) when prompts come from a **detector**, matching deployment behavior.
+
+**Important:** This evaluates the **segmenter under detector prompts**, not detector quality. If YOLO misses a fire region entirely, the prompt map will be empty and the segmenter cannot recover it (deployment-faithful).
+
+### Usage
+
+Baseline (YOLO + ProLimFUNet):
+```bash
+python -m firesam.eval.eval_yolo_prompted_student \
+  --split_file /path/to/DATASET_ROOT/splits/test.txt \
+  --student_ckpt checkpoints/to/students/student_baseline.pth \
+  --yolo_weights yolo/Fire_best.pt \
+  --yolo_class 0 \
+  --conf 0.3 \
+  --img_h 416 --img_w 608
+````
+
+KD student (YOLO + FirESAM):
+
+```bash
+python -m firesam.eval.eval_yolo_prompted_student \
+  --split_file /path/to/DATASET_ROOT/splits/test.txt \
+  --student_ckpt checkpoints/to/students/student_kd.pth \
+  --yolo_weights yolo/Fire_best.pt \
+  --yolo_class 0 \
+  --conf 0.3 \
+  --img_h 416 --img_w 608
+```
+
+---
+
+
+## Stress-test prompt robustness (loose boxes + injected false-positive boxes)
+
+Script: `firesam/eval/eval_prompt_stress.py`
+
+Creates detector-like prompt errors and evaluates robustness across:
+- **EdgeSAM-Fire** (teacher)
+- **ProLimFUNet** (baseline student)
+- **FirESAM** (KD student)
+
+It sweeps two noise sources:
+1. **Box looseness** `ℓ`: expands (or shrinks) the GT-derived prompt box by a margin proportional to box size.
+2. **Injected false-positive (FP) boxes** `k`: adds extra prompt boxes with low IoU to the GT box to emulate spurious detections.
+
+### Usage examples
+
+1) Loosen-only sweep (box-only prompts):
+```bash
+python -m firesam.eval.eval_prompt_stress \
+  --split /path/to/DATASET_ROOT/splits/test.txt \
+  --student_baseline_ckpt checkpoints/.../best_student_baseline.pth \
+  --student_kd_ckpt checkpoints/.../best_student_kd.pth \
+  --teacher_cfg ../edge_sam/...yaml \
+  --teacher_ckpt checkpoints/.../best_teacher.pth \
+  --loosen_levels 0 0.25 0.50 1.00 \
+  --out_csv runs/prompt_stress_loosen.csv
+```
+
+2. FP-only sweep (no loosening):
+
+```bash
+python -m firesam.eval.eval_prompt_stress \
+  --split /path/to/DATASET_ROOT/splits/test.txt \
+  --student_baseline_ckpt checkpoints/.../best_student_baseline.pth \
+  --student_kd_ckpt checkpoints/.../best_student_kd.pth \
+  --teacher_cfg ../edge_sam/...yaml \
+  --teacher_ckpt checkpoints/.../best_teacher.pth \
+  --fp_boxes_per_image 1 \
+  --fp_iou_max 0.05 \
+  --fp_trials 200 \
+  --out_csv runs/prompt_stress_fp.csv
+```
+
+3. Full grid sweep (loosen + FP):
+
+```bash
+python -m firesam.eval.eval_prompt_stress \
+  --split /path/to/DATASET_ROOT/splits/test.txt \
+  --student_baseline_ckpt checkpoints/.../best_student_baseline.pth \
+  --student_kd_ckpt checkpoints/.../best_student_kd.pth \
+  --teacher_cfg ../edge_sam/...yaml \
+  --teacher_ckpt checkpoints/.../best_teacher.pth \
+  --loosen_levels 0 0.25 0.50 \
+  --fp_boxes_per_image 2 \
+  --fp_iou_max 0.05 \
+  --fp_trials 300 \
+  --out_csv runs/prompt_stress_both.csv
+```
+
+4. Add point prompts + point perturbation:
+
+```bash
+python -m firesam.eval.eval_prompt_stress \
+  --split /path/to/DATASET_ROOT/splits/test.txt \
+  --student_baseline_ckpt checkpoints/.../best_student_baseline.pth \
+  --student_kd_ckpt checkpoints/.../best_student_kd.pth \
+  --teacher_cfg ../edge_sam/...yaml \
+  --teacher_ckpt checkpoints/.../best_teacher.pth \
+  --loosen_levels 0 0.50 \
+  --fp_boxes_per_image 1 \
+  --use_points --num_pos 2 --num_neg 2 --point_noise_px 5
+```
+
+### Outputs
+* Saves a **CSV** via `--out_csv`.
 
 ---
 
@@ -406,8 +548,8 @@ If you use this repo, please cite the FirESAM paper.
   title        = {FirESAM},
   year         = {2026},
   publisher    = {Zenodo},
-  doi          = {},
-  url          = {}
+  doi          = {10.5281/zenodo.18598906},
+  url          = {https://doi.org/10.5281/zenodo.18598906}
 }
 ```
 
@@ -415,16 +557,14 @@ If you use this repo, please cite the FirESAM paper.
 
 ```
 @dataset{Ugwu2026FSSSD,
-  title        = {FSSSD},
   author       = {Ugwu, Emmanuel U. and Zhang, Xinming and Ouedraogo, Ezekiel B. and Aprilica Liemong, Caezar Al Fajr N. and Sukianto, Aurelia and Huang, Sicheng},
+  title        = {FSSSD (F3SD): FirESAM Semantic Segmentation Dataset},
   year         = {2026},
-  publisher    = {Zenodo},
-  version      = {v1.0.0},
-  doi          = {},
-  url          = {},
-  note         = {Contains FirESAM Semantic Segmentation Dataset.}
+  publisher    = {figshare},
+  doi          = {10.6084/m9.figshare.31311118},
+  url          = {https://doi.org/10.6084/m9.figshare.31311118},
+  note         = {Dataset archive (ZIP) and README describing folder structure.}
 }
-
 ```
 
 ---
