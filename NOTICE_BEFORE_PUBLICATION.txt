@@ -1,7 +1,7 @@
 NOTICE: Review-Only Access — Not Yet Open Source
 ================================================
 
-This repository contains the implementation of LimFUNet as part of an unpublished manuscript
+This repository contains the implementation of FirESAM as part of an unpublished manuscript
 submitted for peer review. The code is shared solely for review and academic verification.
 
 Copyright (c) 2026 Emmanuel U. Ugwu and contributors
