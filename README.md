@@ -3,59 +3,64 @@
 [![Dataset License: CC BY 4.0](https://img.shields.io/badge/Dataset%20License-CC%20BY%204.0-orange.svg)](https://creativecommons.org/licenses/by/4.0/)
 [![Dataset DOI](https://img.shields.io/badge/Dataset%20DOI-10.6084%2Fm9.figshare.31311118-brightgreen.svg)](https://doi.org/10.6084/m9.figshare.31311118)
 
-
 # FirESAM: An Ultra-Lightweight Prompt-in-the-Loop Distillation Model for Real-Time Fire Segmentation on Edge Devices and the FirESAM Semantic Segmentation Dataset (FSSSD)
 
-This repository contains the **FirESAM codebase**:
+This repository provides code for **FirESAM**, an ultra-lightweight prompt-in-the-loop distillation model for fire segmentation, along with the **FirESAM Semantic Segmentation Dataset (FSSSD)**.
 
-- **EdgeSAM-Fire** (teacher): a fire-domain adapted promptable segmenter built by fine-tuning EdgeSAM’s **prompt encoder + mask decoder** while freezing the RepViT image encoder.
-- **ProLimFUNet** (student baseline): an ultra-lightweight promptable U-Net variant trained **only with ground truth**.
-- **FirESAM** (student, KD): the **same ProLimFUNet architecture** trained with **prompt-in-the-loop knowledge distillation** from the EdgeSAM-Fire teacher.
+It contains:
 
-> Note on naming in this repo:
-> - Some scripts still use historical filenames containing `limfunet` (e.g., `train_student_limfunet_baseline.py`). In the paper and throughout this README, these correspond to **ProLimFUNet** (baseline) and **FirESAM** (KD).
+- **EdgeSAM-Fire** (teacher): promptable segmenter fine-tuned on fire data.
+- **ProLimFUNet** (student baseline): lightweight U-Net variant trained with ground truth only.
+- **FirESAM** (student KD): ProLimFUNet trained with prompt-in-the-loop knowledge distillation from EdgeSAM-Fire.
+
+> Script names may reference `train_student_limfunet_baseline` and `train_student_firesam_limfunet_kd`; these correspond to **ProLimFUNet** and **FirESAM** in this README.
 
 ---
 
-## Repository layout
+## Repository Layout
 
-- `firesam/`
-  - `data/` dataset loaders and utilities
-  - `train/` training scripts (teacher + students)
-  - `export/` ONNX export and INT8 PTQ scripts
-  - `eval/` utilities for model evaluation and mask generation / dataset consolidation
-- `tools/`
-  - `benchmark_video_firesam_onnx.py` video throughput benchmarking
-- `interactive_annotator.py` web UI for prompt-based re-annotation
-- `FSSSD/` documenting the dataset curation pipeline
+```
+
+FirESAM/
+firesam/
+data/           # dataset loaders and utilities
+train/          # teacher and student training scripts
+eval/           # evaluation scripts and mask generation
+export/         # ONNX export and INT8 PTQ scripts
+tools/
+benchmark_video_firesam_onnx.py
+interactive_annotator.py  # web-based prompt annotator
+FSSSD/                    # dataset curation pipeline
+
+````
 
 ---
 
 ## Installation
 
-### 1) Create an environment
+### 1) Environment
 
-Recommended: **Python 3.10**.
+Python 3.10 recommended:
 
 ```bash
 python -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
-```
+````
 
-### 2) Clone EdgeSAM
+### 2) EdgeSAM
 
-Clone the official EdgeSAM repo next to this FirESAM folder, for example:
+Clone EdgeSAM alongside FirESAM:
 
 ```bash
 cd ..
 git clone https://github.com/chongzhou96/EdgeSAM
 ```
 
-You should now have:
+Ensure directory structure:
 
-```text
+```
 .../
   FirESAM/
   edge_sam/
@@ -63,21 +68,18 @@ You should now have:
 
 ### 3) Torch + ONNX Runtime
 
-Install a CUDA or CPU build of [PyTorch](https://pytorch.org/get-started/locally/) that matches your system.
-For ONNX inference/benchmarking, install either:
+Install a CUDA or CPU build of PyTorch compatible with your system. For ONNX inference:
 
-- `onnxruntime` (CPU)
-- `onnxruntime-gpu` (CUDA)
+```bash
+pip install onnxruntime       # CPU
+pip install onnxruntime-gpu   # CUDA
+```
 
 ---
 
-## Dataset preparation (Khan + Roboflow fire)
+## Dataset Preparation
 
-The code supports training and evaluation on **Khan**, **Roboflow**, or **Combined** (Khan ∪ Roboflow). 
-
-### 3.1. Datasets
-
-Please obtain datasets from their official sources and respect licenses:
+Supports **Khan**, **Roboflow**, **Foggia**, **BurnedAreaUAV**, and **FiSmo** datasets.
 
 * **Khan et al.** DOI: 10.1109/TITS.2022.3203868
   Link: [https://drive.google.com/drive/folders/1Xfq7zLwIwJ4vPx50G-k7j2-ofh1bj3fx](https://drive.google.com/drive/folders/1Xfq7zLwIwJ4vPx50G-k7j2-ofh1bj3fx)
@@ -98,92 +100,28 @@ Please obtain datasets from their official sources and respect licenses:
 
 
 
+### 1) Directory Layout
 
-First unify your fire datasets into a simple **image/mask + split file** format.
-
-### 3.2. Directory layout
-
-Create a `data/fire/` folder inside `FirESAM`:
-
-```text
-FirESAM/
-  data/
-    fire/
-      images/
-        khan_0001.jpg
-        khan_0002.jpg
-        ...
-        rf_0001.jpg
-        ...
-      masks/
-        khan_0001.png
-        khan_0002.png
-        ...
-        rf_0001.png
-        ...
-      splits/
-        train.txt
-        val.txt
-        test.txt
+```
+FirESAM/data/fire/
+  images/
+  masks/
+  splits/
+    train.txt
+    val.txt
+    test.txt
 ```
 
-### 3.3. Split text files
+Split files are plain text:
 
-Each split file is a plain text file with **one sample per line**:
-
-```text
+```
 relative/path/to/image.jpg relative/path/to/mask.png
 ```
-
-Relative paths are relative to `FirESAM/data/fire/`.
-
-Example `data/fire/splits/train.txt`:
-
-```text
-images/khan_0001.jpg masks/khan_0001.png
-images/khan_0002.jpg masks/khan_0002.png
-images/rf_0001.jpg   masks/rf_0001.png
-...
-```
-
-Similarly create `val.txt` and `test.txt` for validation and final testing.
-
----
-
-## Method overview
-
-### ProLimFUNet and FirESAM input interface
-
-Both the baseline student and KD student use the same promptable interface: a **6-channel** input.
-
-- Channels 1–3: RGB image
-- Channels 4–6: rasterized prompt map
-  - box channel (filled rectangle)
-  - positive points channel
-  - negative points channel
-
-### Distillation (prompt-in-the-loop)
-
-FirESAM training runs a first pass with GT-derived prompts (box + points), then samples additional “hard” points from student error regions and runs a second pass. The final loss combines segmentation supervision + KD + loop loss.
-
 ---
 
 ## Training
 
-All main training runs in the paper use **50 epochs** (teacher + students). Some exploratory runs may use more epochs; treat 50 as the default.
-
-### 1) Train the teacher (EdgeSAM-Fire)
-
-Script: `firesam/train/train_teacher_edgesam_fire.py`
-
-Key paper-aligned settings:
-- **Epochs:** 50
-- **Batch size:** 1
-- **Learning rate:** `1e-4`
-- **Effective batch size:** 1 (teacher training loop processes one image per step)
-- **Trainable:** prompt encoder + mask decoder (image encoder frozen)
-
-Example:
+### 1) Teacher (EdgeSAM-Fire)
 
 ```bash
 python -m firesam.train.train_teacher_edgesam_fire \
@@ -196,54 +134,22 @@ python -m firesam.train.train_teacher_edgesam_fire \
   --lr 1e-4
 ```
 
-> The `--cfg` file is an EdgeSAM YAML config from the EdgeSAM repo (RepViT-based). See EdgeSAM docs for available configs.
-
-The best teacher checkpoint will be saved as (for example):
-
-```text
-checkpoints/teacher_edgesam_fire/best_teacher.pth
-```
-
-This checkpoint is then used for distillation.
-
----
-
-To evaluate:
+Evaluate:
 
 ```bash
 python -m firesam.eval.eval_teacher_vs_edgesam \
   --cfg /path/to/edgesam_config.yaml \
   --teacher_ckpt checkpoints/teacher_edgesam_fire/best_teacher.pth \
   --edgesam_ckpt /path/to/edgesam_pretrained.pth \
-  --test_split /path/to/DATASET_ROOT/splits/train.txt \
-  --output eval/teacher_vs_edgesam
-  --threshold 0.5
-```
-Optionally include roc points (we used 200000 points due to memory constraint):
-
-```bash
-  --max_roc_points <roc points>
+  --test_split /path/to/DATASET_ROOT/splits/test.txt \
+  --output eval/teacher_vs_edgesam \
+  --threshold 0.5 \
+  --max_roc_points 200000
 ```
 
----
+### 2) Student Baseline (ProLimFUNet)
 
-### 2) Train the student baseline (ProLimFUNet)
-
-Script: `firesam/train/train_student_limfunet_baseline.py`
-
-This script:
-- Uses the same dataset (`FireSegmentationDataset`).
-- Generates box + point prompts from GT masks.
-- Trains the student purely with supervised loss:
-
-  - `L_seg = Dice + BCEWithLogits` on the fire mask.
-  - Optional boundary loss (enabled via arguments).
-
-
-Paper-aligned defaults:
-- **Epochs:** 50
-- **Batch size:** 8 (baseline)
-- **Learning rate:** `1e-4`
+Train:
 
 ```bash
 python -m firesam.train.train_student_limfunet_baseline \
@@ -255,16 +161,7 @@ python -m firesam.train.train_student_limfunet_baseline \
   --lr 1e-4
 ```
 
-This gives the **“before KD”** ProLimFUNet checkpoint, e.g.:
-
-```text
-checkpoints/student_baseline/best_student_baseline.pth
-```
-
-To evaluate:
-Script: `firesam/eval/eval_student.py`
-
-Evaluates a ProLimFUNet checkpoint on a given split.
+Evaluate:
 
 ```bash
 python -m firesam.eval.eval_student \
@@ -272,46 +169,17 @@ python -m firesam.eval.eval_student \
   --split /path/to/DATASET_ROOT/splits/test.txt \
   --batch_size 8
 ```
----
-### 3) Train the KD student (FirESAM)
 
-Script: `firesam/train/train_student_firesam_limfunet_kd.py`
+### 3) KD Student (FirESAM)
 
-This script:
-
-- Loads the **fixed** EdgeSAM-Fire teacher checkpoint.
-- Freezes all teacher parameters.
-- Runs both teacher and student with the same image and prompts.
-- Computes a combined loss:
-
-  - `L_seg` (same as baseline).
-  - `L_KD` (KL divergence or MSE between teacher and student mask logits).
-  - `L_bdry` (boundary-aware Dice on edge maps).
-  - `L_loop` (optional; from a second pass with prompts sampled from disagreement regions).
-
-Total loss:
-
-```text
-L = λ_seg * L_seg + λ_KD * L_KD + λ_bdry * L_bdry + λ_loop * L_loop
-```
-
-Paper-aligned defaults:
-- **Epochs:** 50
-- **Batch size:** 4 (KD)
-- **Learning rate:** `1e-4`
-- Loss weights (default used in the paper unless noted otherwise):
-  - `lambda_seg = 1.0`
-  - `lambda_kd  = 0.5`
-  - `lambda_bdry = 0.1`
-  - `lambda_loop = 0.5`
-
+Train:
 
 ```bash
 python -m firesam.train.train_student_firesam_limfunet_kd \
   --teacher_cfg /path/to/edgesam_config.yaml \
   --train_split /path/to/DATASET_ROOT/splits/train.txt \
   --val_split /path/to/DATASET_ROOT/splits/val.txt \
-  --teacher_checkpoint checkpoints/teacher_edgesam_fire/best_model \
+  --teacher_checkpoint checkpoints/teacher_edgesam_fire/best_teacher.pth \
   --output checkpoints/student_firesam_kd.pth \
   --epochs 50 \
   --batch_size 4 \
@@ -321,17 +189,8 @@ python -m firesam.train.train_student_firesam_limfunet_kd \
   --lambda_bdry 0.1 \
   --lambda_loop 0.5
 ```
-This produces the **“after KD”** FirESAM checkpoint, e.g.:
 
-```text
-checkpoints/student_kd/best_student_kd.pth
-```
-
-
-To evaluate:
-Script: `firesam/eval/eval_student.py`
-
-Evaluates a FirESAM checkpoint on a given split.
+Evaluate:
 
 ```bash
 python -m firesam.eval.eval_student \
@@ -339,35 +198,15 @@ python -m firesam.eval.eval_student \
   --split /path/to/DATASET_ROOT/splits/test.txt \
   --batch_size 8
 ```
+
 ---
 
-## Evaluate a prompt-rasterized student under detector prompts (YOLO)
-
-Script: `firesam/eval/eval_yolo_prompted_student.py`
-
-Evaluates **ProLimFUNet** (baseline) or **FirESAM** (KD) when prompts come from a **detector**, matching deployment behavior.
-
-**Important:** This evaluates the **segmenter under detector prompts**, not detector quality. If YOLO misses a fire region entirely, the prompt map will be empty and the segmenter cannot recover it (deployment-faithful).
-
-### Usage
-
-Baseline (YOLO + ProLimFUNet):
-```bash
-python -m firesam.eval.eval_yolo_prompted_student \
-  --split_file /path/to/DATASET_ROOT/splits/test.txt \
-  --student_ckpt checkpoints/to/students/student_baseline.pth \
-  --yolo_weights yolo/Fire_best.pt \
-  --yolo_class 0 \
-  --conf 0.3 \
-  --img_h 416 --img_w 608
-````
-
-KD student (YOLO + FirESAM):
+## YOLO-Prompted Evaluation
 
 ```bash
 python -m firesam.eval.eval_yolo_prompted_student \
   --split_file /path/to/DATASET_ROOT/splits/test.txt \
-  --student_ckpt checkpoints/to/students/student_kd.pth \
+  --student_ckpt checkpoints/student_kd.pth \
   --yolo_weights yolo/Fire_best.pt \
   --yolo_class 0 \
   --conf 0.3 \
@@ -376,159 +215,52 @@ python -m firesam.eval.eval_yolo_prompted_student \
 
 ---
 
-
-## Stress-test prompt robustness (loose boxes + injected false-positive boxes)
-
-Script: `firesam/eval/eval_prompt_stress.py`
-
-Creates detector-like prompt errors and evaluates robustness across:
-- **EdgeSAM-Fire** (teacher)
-- **ProLimFUNet** (baseline student)
-- **FirESAM** (KD student)
-
-It sweeps two noise sources:
-1. **Box looseness** `ℓ`: expands (or shrinks) the GT-derived prompt box by a margin proportional to box size.
-2. **Injected false-positive (FP) boxes** `k`: adds extra prompt boxes with low IoU to the GT box to emulate spurious detections.
-
-### Usage examples
-
-1) Loosen-only sweep (box-only prompts):
-```bash
-python -m firesam.eval.eval_prompt_stress \
-  --split /path/to/DATASET_ROOT/splits/test.txt \
-  --student_baseline_ckpt checkpoints/.../best_student_baseline.pth \
-  --student_kd_ckpt checkpoints/.../best_student_kd.pth \
-  --teacher_cfg ../edge_sam/...yaml \
-  --teacher_ckpt checkpoints/.../best_teacher.pth \
-  --loosen_levels 0 0.25 0.50 1.00 \
-  --out_csv runs/prompt_stress_loosen.csv
-```
-
-2. FP-only sweep (no loosening):
+## Prompt Stress Testing
 
 ```bash
 python -m firesam.eval.eval_prompt_stress \
   --split /path/to/DATASET_ROOT/splits/test.txt \
-  --student_baseline_ckpt checkpoints/.../best_student_baseline.pth \
-  --student_kd_ckpt checkpoints/.../best_student_kd.pth \
-  --teacher_cfg ../edge_sam/...yaml \
-  --teacher_ckpt checkpoints/.../best_teacher.pth \
+  --student_baseline_ckpt checkpoints/student_baseline.pth \
+  --student_kd_ckpt checkpoints/student_kd.pth \
+  --teacher_cfg ../edge_sam/config.yaml \
+  --teacher_ckpt checkpoints/teacher_edgesam_fire/best_teacher.pth \
+  --loosen_levels 0 0.25 0.50 \
   --fp_boxes_per_image 1 \
   --fp_iou_max 0.05 \
   --fp_trials 200 \
-  --out_csv runs/prompt_stress_fp.csv
+  --use_points --num_pos 2 --num_neg 2 --point_noise_px 5 \
+  --out_csv runs/prompt_stress.csv
 ```
-
-3. Full grid sweep (loosen + FP):
-
-```bash
-python -m firesam.eval.eval_prompt_stress \
-  --split /path/to/DATASET_ROOT/splits/test.txt \
-  --student_baseline_ckpt checkpoints/.../best_student_baseline.pth \
-  --student_kd_ckpt checkpoints/.../best_student_kd.pth \
-  --teacher_cfg ../edge_sam/...yaml \
-  --teacher_ckpt checkpoints/.../best_teacher.pth \
-  --loosen_levels 0 0.25 0.50 \
-  --fp_boxes_per_image 2 \
-  --fp_iou_max 0.05 \
-  --fp_trials 300 \
-  --out_csv runs/prompt_stress_both.csv
-```
-
-4. Add point prompts + point perturbation:
-
-```bash
-python -m firesam.eval.eval_prompt_stress \
-  --split /path/to/DATASET_ROOT/splits/test.txt \
-  --student_baseline_ckpt checkpoints/.../best_student_baseline.pth \
-  --student_kd_ckpt checkpoints/.../best_student_kd.pth \
-  --teacher_cfg ../edge_sam/...yaml \
-  --teacher_ckpt checkpoints/.../best_teacher.pth \
-  --loosen_levels 0 0.50 \
-  --fp_boxes_per_image 1 \
-  --use_points --num_pos 2 --num_neg 2 --point_noise_px 5
-```
-
-### Outputs
-* Saves a **CSV** via `--out_csv`.
 
 ---
 
-## ONNX export and benchmarking
+## ONNX Export and Benchmarking
 
-### Export
-
-- FP32: `firesam/export/export_student_onnx32.py`
-- FP16: `firesam/export/export_student_onnx16.py`
-- INT8 PTQ: `firesam/export/export_student_onnx_int8.py`
-
-Example (FP32):
+### Export FP32 / FP16 / INT8
 
 ```bash
-#For onnx32
-python -m firesam.export.export_student_onnx32 \
-  --checkpoint /path/to/student/checkpoint \
-  --output /path/to/output/student_firesam_fp32.onnx \
-  --height 416 \
-  --width 608
-
-
-#For onnx16
-python -m firesam.export.export_student_onnx16 \
-  --checkpoint /path/to/student/checkpoint \
-  --output /path/to/output/student_firesam_fp16.onnx \
-  --height 416 \
-  --width 608
-
-
-#For int8
-python -m firesam.export.quantize_student_int8 \
-  --input  /path/to/onnx32/input \
-  --output /path/to/output/student_firesam_int8.onnx \
-  --calib_split /path/to/DATASET_ROOT/splits/val.txt \
-  --num_calib 200 \
-  --height 416 \
-  --width 608
+python -m firesam.export.export_student_onnx32 --checkpoint checkpoints/student_kd.pth --output student_fp32.onnx --height 416 --width 608
+python -m firesam.export/export_student_onnx16 --checkpoint checkpoints/student_kd.pth --output student_fp16.onnx --height 416 --width 608
+python -m firesam.export.quantize_student_int8 --input student_fp32.onnx --output student_int8.onnx --calib_split splits/val.txt --num_calib 200 --height 416 --width 608
 ```
 
-### Benchmark on video
-
-Script: `tools/benchmark_video_firesam_onnx.py`
-
-This runs ONNX inference on a video and reports timing/FPS on CPU and GPU.
+### Benchmark Video
 
 ```bash
-#For onnx-only
-python -m tools.benchmark_video_firesam_onnx \
-  --onnx /path/to/onnx \
-  --video /path/to/video.mp4 \
-  --mode onnx \
-  --provider cuda \ #or cpu
-  --max_frames 500
-
-
-#For complete pipline
-python -m tools.benchmark_video_firesam_onnx \
-  --onnx /path/to/onnx \
-  --video /path/to/video.mp4 \
-  --mode pipeline \
-  --yolo path/to/yolo/Fire_best.pt \
-  --provider cuda \ #or cpu
-  --max_frames 500
-
+python -m tools.benchmark_video_firesam_onnx --onnx student_int8.onnx --video video.mp4 --mode onnx --provider cuda --max_frames 500
 ```
-The pretrained YOLO model is gotten from [ProFSAM](https://github.com/UEmmanuel5/ProFSAM).
 
 ---
 
-## FSSSD dataset creation (pipeline + code pointers)
-See the `README.md` file in the `/FSSSD` folder 
+## Dataset Pipeline
+
+See `FSSSD/README.md` for dataset creation instructions.
+
+---
 
 ## Citation
 
-If you use this repo, please cite the FirESAM paper.
-
-**Manuscript:**
+**Paper:**
 
 ```
 @article{Ugwu2026FirESAM,
@@ -537,19 +269,18 @@ If you use this repo, please cite the FirESAM paper.
   journal={},
   year={2026}
 }
-
 ```
 
-**Code (for this repo):**
+**Code:**
 
 ```
 @software{Ugwu2026FirESAM_Code,
-  author       = {Ugwu, Emmanuel U. and Zhang, Xinming and Ouedraogo, Ezekiel B. and Aprilica Liemong, Caezar Al Fajr N. and Sukianto, Aurelia and Huang, Sicheng},
-  title        = {FirESAM},
-  year         = {2026},
-  publisher    = {Zenodo},
-  doi          = {10.5281/zenodo.18598906},
-  url          = {https://doi.org/10.5281/zenodo.18598906}
+  author={Ugwu, Emmanuel U. and Zhang, Xinming and Ouedraogo, Ezekiel B. and Aprilica Liemong, Caezar Al Fajr N. and Sukianto, Aurelia and Huang, Sicheng},
+  title={FirESAM},
+  year={2026},
+  publisher={Zenodo},
+  doi={10.5281/zenodo.18598906},
+  url={https://doi.org/10.5281/zenodo.18598906}
 }
 ```
 
@@ -557,13 +288,13 @@ If you use this repo, please cite the FirESAM paper.
 
 ```
 @dataset{Ugwu2026FSSSD,
-  author       = {Ugwu, Emmanuel U. and Zhang, Xinming and Ouedraogo, Ezekiel B. and Aprilica Liemong, Caezar Al Fajr N. and Sukianto, Aurelia and Huang, Sicheng},
-  title        = {FSSSD (F3SD): FirESAM Semantic Segmentation Dataset},
-  year         = {2026},
-  publisher    = {figshare},
-  doi          = {10.6084/m9.figshare.31311118},
-  url          = {https://doi.org/10.6084/m9.figshare.31311118},
-  note         = {Dataset archive (ZIP) and README describing folder structure.}
+  author={Ugwu, Emmanuel U. and Zhang, Xinming and Ouedraogo, Ezekiel B. and Aprilica Liemong, Caezar Al Fajr N. and Sukianto, Aurelia and Huang, Sicheng},
+  title={FSSSD (F3SD): FirESAM Semantic Segmentation Dataset},
+  year={2026},
+  publisher={figshare},
+  doi={10.6084/m9.figshare.31311118},
+  url={https://doi.org/10.6084/m9.figshare.31311118},
+  note={Dataset archive (ZIP) and README describing folder structure.}
 }
 ```
 
@@ -571,5 +302,5 @@ If you use this repo, please cite the FirESAM paper.
 
 ## License
 
-This work is released under **Apache-2.0** [LICENSE](LICENSE).
+Released under **Apache-2.0** [LICENSE](LICENSE).
 
